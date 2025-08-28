@@ -58,7 +58,7 @@ package final class SourceKitBazelBSPServer {
             // no-op
         })
         registry.register(syncRequestHandler: { (_: WorkspaceWaitForBuildSystemUpdatesRequest, _: RequestID) in
-            // FIXME: no-op, no special handling since the code today is not async, but I might be wrong here.
+            // FIXME: no-op, no special handling since buildTargets is not async
             VoidResponse()
         })
 
@@ -78,7 +78,7 @@ package final class SourceKitBazelBSPServer {
             targetStore: targetStore,
             connection: connection
         )
-        registry.register(syncRequestHandler: skOptionsHandler.textDocumentSourceKitOptions)
+        registry.register(requestHandler: skOptionsHandler.textDocumentSourceKitOptions)
 
         // buildTarget/prepare
         let prepareHandler = PrepareHandler(
@@ -86,7 +86,7 @@ package final class SourceKitBazelBSPServer {
             targetStore: targetStore,
             connection: connection
         )
-        registry.register(syncRequestHandler: prepareHandler.prepareTarget)
+        registry.register(requestHandler: prepareHandler.prepareTarget)
 
         // OnWatchedFilesDidChangeNotification
         let watchedFileChangeHandler = WatchedFileChangeHandler(

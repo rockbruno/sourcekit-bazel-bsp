@@ -27,6 +27,7 @@ private let logger = makeFileLevelBSPLogger()
 ///
 /// Builds the provided list of targets upon request.
 final class PrepareHandler {
+    private let queue = DispatchQueue(label: "PrepareHandler", qos: .userInteractive)
     private let initializedConfig: InitializedServerConfig
     private let targetStore: BazelTargetStore
     private let commandRunner: CommandRunner
@@ -48,13 +49,32 @@ final class PrepareHandler {
         self.connection = connection
     }
 
-    func prepareTarget(_ request: BuildTargetPrepareRequest, _ id: RequestID) throws -> VoidResponse {
+    func prepareTarget(
+        _ request: BuildTargetPrepareRequest,
+        _ id: RequestID,
+        _ reply: @escaping (Result<VoidResponse, Error>) -> Void
+    ) {
+        queue.async { [weak self] in
+            guard let self = self else {
+                reply(.failure(ResponseError.cancelled))
+                return
+            }
+            do {
+                try self.prepareTarget(request, id)
+                reply(.success(VoidResponse()))
+            } catch {
+                reply(.failure(error))
+            }
+        }
+    }
+
+    func prepareTarget(_ request: BuildTargetPrepareRequest, _ id: RequestID) throws {
 
         let targetsToBuild = request.targets.map { $0.uri }.filter { !buildCache.contains($0) }
 
         guard !targetsToBuild.isEmpty else {
             logger.info("No uncached targets to build, skipping redundant build")
-            return VoidResponse()
+            return
         }
 
         let taskId = TaskId(id: "buildPrepare-\(id.description)")
@@ -63,7 +83,7 @@ final class PrepareHandler {
             try prepare(bspURIs: targetsToBuild)
             connection?.finishTask(id: taskId, status: .ok)
             buildCache.formUnion(targetsToBuild)
-            return VoidResponse()
+            return
         } catch {
             connection?.finishTask(id: taskId, status: .error)
             throw error

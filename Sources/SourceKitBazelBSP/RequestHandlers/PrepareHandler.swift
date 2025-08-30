@@ -92,8 +92,7 @@ final class PrepareHandler {
                 initializedConfig: initializedConfig,
                 cmd: "build \(labelsToBuild.joined(separator: " "))"
             )
-            (process.wrappedProcess as? Process)?.terminationHandler = { process in
-                let code = process.terminationStatus
+            process.setTerminationHandler { code in
                 logger.info("Finished building! (Request ID: \(id.description), status code: \(code))")
                 if code == 0 {
                     completion.block?(nil)

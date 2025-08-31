@@ -1,6 +1,6 @@
 bazel_dep(
     name = "rules_swift",
-    version = "3.0.2", # 3.1.0 seems to break lldb breakpoints.
+    version = "3.1.2",
     repo_name = "build_bazel_rules_swift",
 )
 

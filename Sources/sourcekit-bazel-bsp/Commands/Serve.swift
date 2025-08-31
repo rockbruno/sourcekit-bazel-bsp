@@ -31,7 +31,7 @@ struct Serve: ParsableCommand {
     @Option(
         parsing: .singleValue,
         help:
-            "The *top level* Bazel application or test targets that this should serve a BSP for. Can be specified multiple times. If not specified, the server will try to discover top-leveltargets automatically."
+            "The *top level* Bazel application or test target that this should serve a BSP for. Can be specified multiple times. If not specified, the server will try to discover top-level targets automatically."
     )
     var target: [String] = []
 

@@ -48,6 +48,7 @@ struct Serve: ParsableCommand {
     )
     var buildTestSuffix: String = "_skbsp"
 
+    // FIXME: This should be enabled by default, but I ran into some weird race condition issues with rules_swift I'm not sure about.
     @Flag(
         help:
             "Whether to use a separate output base for compiler arguments requests. This greatly increases the performance of the server at the cost of more disk usage."

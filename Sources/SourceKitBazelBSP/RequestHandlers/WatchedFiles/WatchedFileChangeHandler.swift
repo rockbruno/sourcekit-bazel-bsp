@@ -132,6 +132,11 @@ final class WatchedFileChangeHandler {
 
         }
 
+        guard !invalidatedTargets.isEmpty else {
+            logger.debug("No target changes to notify about.")
+            return
+        }
+
         // Notify our observers about the affected targets
         for observer in observers {
             try? observer.invalidate(targets: invalidatedTargets)
@@ -139,11 +144,6 @@ final class WatchedFileChangeHandler {
 
         // Notify SK-LSP about the affected targets
         let uniqueInvalidatedTargets = Set(invalidatedTargets.map { $0.uri })
-
-        guard !uniqueInvalidatedTargets.isEmpty else {
-            logger.debug("No target changes to notify about.")
-            return
-        }
 
         let response = OnBuildTargetDidChangeNotification(
             changes: uniqueInvalidatedTargets.map { targetUri in

@@ -4,7 +4,6 @@ bazel_dep(
     repo_name = "build_bazel_rules_swift",
 )
 
-# We need a commit that has not yet made into a release, so overriding it for now
 bazel_dep(
     name = "rules_apple",
     version = "4.1.2",

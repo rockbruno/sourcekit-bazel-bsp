@@ -36,10 +36,6 @@ final class SKOptionsHandler: InvalidatedTargetObserver {
 
     private weak var connection: LSPConnection?
 
-    // This request needs synchronization because we might be requested to wipe the cache
-    // in the middle of a request.
-    private let stateLock = OSAllocatedUnfairLock()
-
     init(
         initializedConfig: InitializedServerConfig,
         targetStore: BazelTargetStore,
@@ -80,15 +76,13 @@ final class SKOptionsHandler: InvalidatedTargetObserver {
             "Fetching SKOptions for \(targetUri.stringValue), target: \(bazelTarget), language: \(request.language)"
         )
 
-        let args = try stateLock.withLockUnchecked {
-            return try extractor.compilerArgs(
-                forDoc: request.textDocument.uri,
-                inTarget: bazelTarget,
-                underlyingLibrary: underlyingLibrary,
-                language: request.language,
-                platform: platform
-            ) ?? []
-        }
+        let args = try extractor.compilerArgs(
+            forDoc: request.textDocument.uri,
+            inTarget: bazelTarget,
+            underlyingLibrary: underlyingLibrary,
+            language: request.language,
+            platform: platform
+        ) ?? []
 
         // If no compiler arguments are found, return nil to avoid sourcekit indexing with no input files
         guard !args.isEmpty else {
@@ -108,8 +102,6 @@ final class SKOptionsHandler: InvalidatedTargetObserver {
         guard targets.contains(where: { $0.kind == .created || $0.kind == .deleted }) else {
             return
         }
-        stateLock.withLockUnchecked {
-            extractor.clearCache()
-        }
+        extractor.clearCache()
     }
 }

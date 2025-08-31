@@ -21,7 +21,7 @@ import BuildServerProtocol
 import Foundation
 import LanguageServerProtocol
 
-package let sourcekitBazelBSPVersion = "0.0.5"
+package let sourcekitBazelBSPVersion = "0.0.6"
 private let logger = makeFileLevelBSPLogger()
 
 enum InitializeHandlerError: Error, LocalizedError {

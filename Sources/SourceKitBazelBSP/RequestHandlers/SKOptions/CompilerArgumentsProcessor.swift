@@ -75,14 +75,28 @@ enum CompilerArgumentsProcessor {
 
         // We ran the aquery on the aquery output base, but we need this
         // to reflect the data of the real build output base.
-        let outputPath = initializedConfig.outputPath.replacingOccurrences(
-            of: initializedConfig.aqueryOutputBase,
-            with: initializedConfig.outputBase
-        )
-        let outputBase = initializedConfig.outputBase.replacingOccurrences(
-            of: initializedConfig.aqueryOutputBase,
-            with: initializedConfig.outputBase
-        )
+        let outputPath: String = {
+            let base: String = initializedConfig.outputPath
+            if initializedConfig.aqueryOutputBase != initializedConfig.outputBase {
+                return base.replacingOccurrences(
+                    of: initializedConfig.aqueryOutputBase,
+                    with: initializedConfig.outputBase
+                )
+            } else {
+                return base
+            }
+        }()
+        let outputBase = {
+            let base: String = initializedConfig.outputBase
+            if initializedConfig.aqueryOutputBase != initializedConfig.outputBase {
+                return base.replacingOccurrences(
+                    of: initializedConfig.aqueryOutputBase,
+                    with: initializedConfig.outputBase
+                )
+            } else {
+                return base
+            }
+        }()
 
         var compilerArguments: [String] = []
 

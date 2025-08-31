@@ -57,6 +57,9 @@ final class DidInitializeHandler: @unchecked Sendable {
             guard let self = self else {
                 return
             }
+            guard initializedConfig.aqueryOutputBase != initializedConfig.outputBase else {
+                return
+            }
             // FIXME: We have to warm up the aqueries *after* the build, otherwise we can run
             // into some weird race condition with rules_swift I'm not sure about.
             let aquery: RunningProcess? = try? commandRunner.bazelIndexAction(

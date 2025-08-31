@@ -44,9 +44,15 @@ struct Serve: ParsableCommand {
 
     @Option(
         help:
-            "The expected suffix for build_test targets. Defaults to '_skbsp'."
+            "The expected suffix for build_test targets."
     )
     var buildTestSuffix: String = "_skbsp"
+
+    @Flag(
+        help:
+            "Whether to use a separate output base for compiler arguments requests. This greatly increases the performance of the server at the cost of more disk usage."
+    )
+    var separateAqueryOutput: Bool = false
 
     @Option(help: "Comma separated list of file globs to watch for changes.")
     var filesToWatch: String?
@@ -70,7 +76,8 @@ struct Serve: ParsableCommand {
             targets: targets,
             indexFlags: indexFlag.map { "--" + $0 },
             buildTestSuffix: buildTestSuffix,
-            filesToWatch: filesToWatch
+            filesToWatch: filesToWatch,
+            useSeparateOutputBaseForAquery: separateAqueryOutput
         )
         let server = SourceKitBazelBSPServer(baseConfig: config)
         server.run()

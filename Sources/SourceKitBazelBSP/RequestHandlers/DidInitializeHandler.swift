@@ -49,13 +49,13 @@ final class DidInitializeHandler {
         let build: RunningProcess? = try? commandRunner.bazelIndexAction(
             baseConfig: initializedConfig.baseConfig,
             outputBase: initializedConfig.outputBase,
-            cmd: "build \(targetToUse) --nobuild",
+            cmd: "query \(targetToUse)",
             rootUri: initializedConfig.rootUri
         )
         let aquery: RunningProcess? = try? commandRunner.bazelIndexAction(
             baseConfig: initializedConfig.baseConfig,
             outputBase: initializedConfig.aqueryOutputBase,
-            cmd: "build \(targetToUse) --nobuild",
+            cmd: "query \(targetToUse)",
             rootUri: initializedConfig.rootUri
         )
         build?.setTerminationHandler { code in

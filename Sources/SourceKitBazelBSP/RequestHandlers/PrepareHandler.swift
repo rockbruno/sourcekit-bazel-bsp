@@ -62,7 +62,7 @@ final class PrepareHandler {
         }
 
         let taskId = TaskId(id: "buildPrepare-\(id.description)")
-        connection?.startWorkTask(id: taskId, title: "Indexing: Building targets")
+        connection?.startWorkTask(id: taskId, title: "sourcekit-bazel-bsp: Building \(targetsToBuild.count) target(s)...")
         do {
             let labels = try targetStore.stateLock.withLockUnchecked {
                 return try targetsToBuild.map {

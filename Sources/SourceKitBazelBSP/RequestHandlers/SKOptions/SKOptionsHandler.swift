@@ -57,7 +57,7 @@ final class SKOptionsHandler: InvalidatedTargetObserver {
         _ id: RequestID
     ) throws -> TextDocumentSourceKitOptionsResponse? {
         let taskId = TaskId(id: "getSKOptions-\(id.description)")
-        connection?.startWorkTask(id: taskId, title: "Indexing: Getting compiler arguments")
+        connection?.startWorkTask(id: taskId, title: "sourcekit-bazel-bsp: Fetching compiler arguments...")
         do {
             let result = try handle(request: request)
             connection?.finishTask(id: taskId, status: .ok)

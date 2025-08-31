@@ -61,7 +61,7 @@ final class InitializeHandler {
         _ id: RequestID,
     ) throws -> (InitializeBuildResponse, InitializedServerConfig) {
         let taskId = TaskId(id: "initializeBuild-\(id.description)")
-        connection?.startWorkTask(id: taskId, title: "Indexing: Initializing sourcekit-bazel-bsp")
+        connection?.startWorkTask(id: taskId, title: "sourcekit-bazel-bsp: Initializing...")
         do {
             let initializedConfig = try makeInitializedConfig(fromRequest: request, baseConfig: baseConfig)
             let result = buildResponse(fromRequest: request, and: initializedConfig)

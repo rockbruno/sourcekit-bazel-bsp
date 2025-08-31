@@ -27,7 +27,7 @@ private let logger = makeFileLevelBSPLogger()
 ///
 /// This is called right after returning from the `initialize` request.
 /// We use this to warm-up the bazel cache for our special output bases.
-final class DidInitializeHandler {
+final class DidInitializeHandler: @unchecked Sendable {
 
     private let initializedConfig: InitializedServerConfig
     private let commandRunner: CommandRunner
@@ -52,17 +52,22 @@ final class DidInitializeHandler {
             cmd: "query \(targetToUse)",
             rootUri: initializedConfig.rootUri
         )
-        let aquery: RunningProcess? = try? commandRunner.bazelIndexAction(
-            baseConfig: initializedConfig.baseConfig,
-            outputBase: initializedConfig.aqueryOutputBase,
-            cmd: "query \(targetToUse)",
-            rootUri: initializedConfig.rootUri
-        )
-        build?.setTerminationHandler { code in
+        build?.setTerminationHandler { [weak self] code in
             logger.info("Finished warming up the build output base! (status code: \(code))")
-        }
-        aquery?.setTerminationHandler { code in
-            logger.info("Finished warming up the aquery output base! (status code: \(code))")
+            guard let self = self else {
+                return
+            }
+            // FIXME: We have to warm up the aqueries *after* the build, otherwise we can run
+            // into some weird race condition with rules_swift I'm not sure about.
+            let aquery: RunningProcess? = try? commandRunner.bazelIndexAction(
+                baseConfig: initializedConfig.baseConfig,
+                outputBase: initializedConfig.aqueryOutputBase,
+                cmd: "query \(targetToUse)",
+                rootUri: initializedConfig.rootUri
+            )
+            aquery?.setTerminationHandler { code in
+                logger.info("Finished warming up the aquery output base! (status code: \(code))")
+            }
         }
     }
 }

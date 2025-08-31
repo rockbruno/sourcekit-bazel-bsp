@@ -43,9 +43,9 @@ final class BuildTargetsHandler {
         let taskId = TaskId(id: "buildTargets-\(id.description)")
         connection?.startWorkTask(id: taskId, title: "Indexing: Processing build graph")
         do {
-            targetStore.stateLock.lock()
-            let result = try targetStore.fetchTargets()
-            targetStore.stateLock.unlock()
+            let result = try targetStore.stateLock.withLockUnchecked {
+                return try targetStore.fetchTargets()
+            }
             logger.debug("Found \(result.count) targets")
             logger.logFullObjectInMultipleLogMessages(
                 level: .debug,

@@ -47,7 +47,7 @@ final class WatchedFileChangeHandler {
         self.connection = connection
     }
 
-    func onWatchedFilesDidChange(_ notification: OnWatchedFilesDidChangeNotification) throws {
+    func onWatchedFilesDidChange(_ notification: OnWatchedFilesDidChangeNotification) {
         // As of writing, SourceKit-LSP intentionally ignores our fileSystemWatchers
         // and notifies us of everything. This means we need to filter them out on our end.
         // See SourceKitLSPServer.didChangeWatchedFiles in sourcekit-lsp for more details.
@@ -67,76 +67,76 @@ final class WatchedFileChangeHandler {
         // In this case, we keep the lock until the very end of the notification to avoid race conditions
         // with how the LSP follows up with this by calling waitForBuildSystemUpdates and buildTargets again.
         // Also because we need the targetStore at multiple points of this function.
-        targetStore.stateLock.lock()
+        let invalidatedTargets = targetStore.stateLock.withLockUnchecked {
 
-        logger.info("Received \(changes.count) file changes")
+            logger.info("Received \(changes.count) file changes")
 
-        let deletedFiles = changes.filter { $0.type == .deleted }
-        let createdFiles = changes.filter { $0.type == .created }
-        let changedFiles = changes.filter { $0.type == .changed }
+            let deletedFiles = changes.filter { $0.type == .deleted }
+            let createdFiles = changes.filter { $0.type == .created }
+            let changedFiles = changes.filter { $0.type == .changed }
 
-        // First, determine which targets had removed files.
-        let targetsAffectedByDeletions: [InvalidatedTarget] = {
-            do {
-                return try deletedFiles.flatMap { change in
-                    try targetStore.bspURIs(containingSrc: change.uri).map {
-                        InvalidatedTarget(uri: $0, fileUri: change.uri, kind: .deleted)
+            // First, determine which targets had removed files.
+            let targetsAffectedByDeletions: [InvalidatedTarget] = {
+                do {
+                    return try deletedFiles.flatMap { change in
+                        try targetStore.bspURIs(containingSrc: change.uri).map {
+                            InvalidatedTarget(uri: $0, fileUri: change.uri, kind: .deleted)
+                        }
                     }
+                } catch {
+                    logger.error("Error calculating deleted targets: \(error)")
+                    return []
                 }
-            } catch {
-                logger.error("Error calculating deleted targets: \(error)")
-                return []
-            }
-        }()
+            }()
 
-        // If there are any 'created' files, we need to clear the targetStore immediately and fetch targets again.
-        // Otherwise, the targetStore won't know about them.
-        // FIXME: This is quite expensive, but the easier thing to do. We can try improving this later.
-        if !createdFiles.isEmpty {
-            let taskId = TaskId(id: "watchedFiles-\(UUID().uuidString)")
-            connection?.startWorkTask(id: taskId, title: "Indexing: Re-processing build graph")
-            targetStore.clearCache()
-            do {
-                _ = try targetStore.fetchTargets()
-            } catch {
-                logger.error("Error fetching targets after file creation: \(error)")
-                // Continue processing with existing target store data
+            // If there are any 'created' files, we need to clear the targetStore immediately and fetch targets again.
+            // Otherwise, the targetStore won't know about them.
+            // FIXME: This is quite expensive, but the easier thing to do. We can try improving this later.
+            if !createdFiles.isEmpty {
+                let taskId = TaskId(id: "watchedFiles-\(UUID().uuidString)")
+                connection?.startWorkTask(id: taskId, title: "Indexing: Re-processing build graph")
+                targetStore.clearCache()
+                do {
+                    _ = try targetStore.fetchTargets()
+                } catch {
+                    logger.error("Error fetching targets after file creation: \(error)")
+                    // Continue processing with existing target store data
+                }
+                connection?.finishTask(id: taskId, status: .ok)
             }
-            connection?.finishTask(id: taskId, status: .ok)
+
+            // Now that the targetStore knows about the newly created files, we can determine which targets
+            // were affected by those creations.
+            let targetsAffectedByCreations: [InvalidatedTarget] = {
+                do {
+                    return try createdFiles.flatMap { change in
+                        try targetStore.bspURIs(containingSrc: change.uri).map {
+                            InvalidatedTarget(uri: $0, fileUri: change.uri, kind: .created)
+                        }
+                    }
+                } catch {
+                    logger.error("Error calculating created targets: \(error)")
+                    return []
+                }
+            }()
+
+            // Finally, calculate the targets affected by regular changes.
+            let targetsAffectedByChanges: [InvalidatedTarget] = {
+                do {
+                    return try changedFiles.flatMap { change in
+                        try targetStore.bspURIs(containingSrc: change.uri).map {
+                            InvalidatedTarget(uri: $0, fileUri: change.uri, kind: .changed)
+                        }
+                    }
+                } catch {
+                    logger.error("Error calculating changed targets: \(error)")
+                    return []
+                }
+            }()
+
+            return targetsAffectedByDeletions + targetsAffectedByCreations + targetsAffectedByChanges
+
         }
-
-        // Now that the targetStore knows about the newly created files, we can determine which targets
-        // were affected by those creations.
-        let targetsAffectedByCreations: [InvalidatedTarget] = {
-            do {
-                return try createdFiles.flatMap { change in
-                    try targetStore.bspURIs(containingSrc: change.uri).map {
-                        InvalidatedTarget(uri: $0, fileUri: change.uri, kind: .created)
-                    }
-                }
-            } catch {
-                logger.error("Error calculating created targets: \(error)")
-                return []
-            }
-        }()
-
-        // Finally, calculate the targets affected by regular changes.
-        let targetsAffectedByChanges: [InvalidatedTarget] = {
-            do {
-                return try changedFiles.flatMap { change in
-                    try targetStore.bspURIs(containingSrc: change.uri).map {
-                        InvalidatedTarget(uri: $0, fileUri: change.uri, kind: .changed)
-                    }
-                }
-            } catch {
-                logger.error("Error calculating changed targets: \(error)")
-                return []
-            }
-        }()
-
-        targetStore.stateLock.unlock()
-
-        let invalidatedTargets = targetsAffectedByDeletions + targetsAffectedByCreations + targetsAffectedByChanges
 
         // Notify our observers about the affected targets
         for observer in observers {

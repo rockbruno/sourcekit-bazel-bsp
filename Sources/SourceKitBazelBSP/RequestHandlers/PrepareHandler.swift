@@ -64,11 +64,11 @@ final class PrepareHandler {
         let taskId = TaskId(id: "buildPrepare-\(id.description)")
         connection?.startWorkTask(id: taskId, title: "Indexing: Building targets")
         do {
-            targetStore.stateLock.lock()
-            let labels = try targetsToBuild.map {
-                try targetStore.platformBuildLabel(forBSPURI: $0.uri).0
+            let labels = try targetStore.stateLock.withLockUnchecked {
+                return try targetsToBuild.map {
+                    try targetStore.platformBuildLabel(forBSPURI: $0.uri).0
+                }
             }
-            targetStore.stateLock.unlock()
             try build(bazelLabels: labels, id: id, completion: UncheckedCompletion({ [connection] error in
                 if let error = error {
                     connection?.finishTask(id: taskId, status: .error)

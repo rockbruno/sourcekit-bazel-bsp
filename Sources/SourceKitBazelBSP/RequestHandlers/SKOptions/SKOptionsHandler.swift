@@ -21,6 +21,8 @@ import BuildServerProtocol
 import Foundation
 import LanguageServerProtocol
 
+import struct os.OSAllocatedUnfairLock
+
 private let logger = makeFileLevelBSPLogger()
 
 /// Handles the `textDocument/sourceKitOptions` request.
@@ -33,6 +35,10 @@ final class SKOptionsHandler: InvalidatedTargetObserver {
     private let extractor: BazelTargetCompilerArgsExtractor
 
     private weak var connection: LSPConnection?
+
+    // This request needs synchronization because we might be requested to wipe the cache
+    // in the middle of a request.
+    private let stateLock = OSAllocatedUnfairLock()
 
     init(
         initializedConfig: InitializedServerConfig,
@@ -63,24 +69,26 @@ final class SKOptionsHandler: InvalidatedTargetObserver {
     }
 
     func handle(request: TextDocumentSourceKitOptionsRequest) throws -> TextDocumentSourceKitOptionsResponse? {
-        targetStore.stateLock.lock()
-        let targetUri = request.target.uri
-        let (bazelTarget, platform) = try targetStore.platformBuildLabel(forBSPURI: targetUri)
-        let underlyingLibrary = try targetStore.bazelTargetLabel(forBSPURI: targetUri)
-        targetStore.stateLock.unlock()
+        let (targetUri, bazelTarget, platform, underlyingLibrary) = try targetStore.stateLock.withLockUnchecked {
+            let targetUri = request.target.uri
+            let (bazelTarget, platform) = try targetStore.platformBuildLabel(forBSPURI: targetUri)
+            let underlyingLibrary = try targetStore.bazelTargetLabel(forBSPURI: targetUri)
+            return (targetUri, bazelTarget, platform, underlyingLibrary)
+        }
 
         logger.info(
             "Fetching SKOptions for \(targetUri.stringValue), target: \(bazelTarget), language: \(request.language)"
         )
 
-        let args =
-            try extractor.compilerArgs(
+        let args = try stateLock.withLockUnchecked {
+            return try extractor.compilerArgs(
                 forDoc: request.textDocument.uri,
                 inTarget: bazelTarget,
                 underlyingLibrary: underlyingLibrary,
                 language: request.language,
                 platform: platform
             ) ?? []
+        }
 
         // If no compiler arguments are found, return nil to avoid sourcekit indexing with no input files
         guard !args.isEmpty else {
@@ -95,8 +103,12 @@ final class SKOptionsHandler: InvalidatedTargetObserver {
     // MARK: - InvalidatedTargetObserver
 
     func invalidate(targets: [InvalidatedTarget]) throws {
-        // Only clear cache if at least one file was created or deleted
-        if targets.contains(where: { $0.kind == .created || $0.kind == .deleted }) {
+        // Only clear the cache if at least one file was created or deleted.
+        // Otherwise, the compiler args are bound to be the same.
+        guard targets.contains(where: { $0.kind == .created || $0.kind == .deleted }) else {
+            return
+        }
+        stateLock.withLockUnchecked {
             extractor.clearCache()
         }
     }

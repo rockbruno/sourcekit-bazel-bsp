@@ -89,8 +89,10 @@ final class PrepareHandler {
         try currentTaskLock.withLock { [commandRunner, initializedConfig] currentTask in
             // Build the provided targets, on our special output base and taking into account special index flags.
             let process = try commandRunner.bazelIndexAction(
-                initializedConfig: initializedConfig,
-                cmd: "build \(labelsToBuild.joined(separator: " "))"
+                baseConfig: initializedConfig.baseConfig,
+                outputBase: initializedConfig.outputBase,
+                cmd: "build \(labelsToBuild.joined(separator: " "))",
+                rootUri: initializedConfig.rootUri
             )
             process.setTerminationHandler { code in
                 logger.info("Finished building! (Request ID: \(id.description), status code: \(code))")

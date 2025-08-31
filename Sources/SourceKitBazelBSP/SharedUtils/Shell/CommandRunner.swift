@@ -59,26 +59,6 @@ extension CommandRunner {
     }
 
     /// A regular bazel command, but at this BSP's special output base and taking into account the special index flags.
-    func bazelIndexAction(initializedConfig: InitializedServerConfig, cmd: String, outputBasePrefix: String = "") throws -> RunningProcess {
-        return try bazelIndexAction(
-            baseConfig: initializedConfig.baseConfig,
-            outputBase: initializedConfig.outputBase + outputBasePrefix,
-            cmd: cmd,
-            rootUri: initializedConfig.rootUri
-        )
-    }
-
-    /// A regular bazel command, but at this BSP's special output base and taking into account the special index flags.
-    func bazelIndexAction<T: DataConvertible>(initializedConfig: InitializedServerConfig, cmd: String, outputBasePrefix: String = "") throws -> T {
-        let process = try bazelIndexAction(
-            initializedConfig: initializedConfig,
-            cmd: cmd,
-            outputBasePrefix: outputBasePrefix
-        )
-        return try process.output()
-    }
-
-    /// A regular bazel command, but at this BSP's special output base and taking into account the special index flags.
     func bazelIndexAction(
         baseConfig: BaseServerConfig,
         outputBase: String,

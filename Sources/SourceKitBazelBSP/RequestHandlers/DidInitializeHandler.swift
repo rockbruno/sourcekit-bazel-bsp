@@ -47,13 +47,16 @@ final class DidInitializeHandler {
         }
         logger.info("Warming up output bases with \(targetToUse)")
         let build: RunningProcess? = try? commandRunner.bazelIndexAction(
-            initializedConfig: initializedConfig,
-            cmd: "build \(targetToUse) --nobuild"
+            baseConfig: initializedConfig.baseConfig,
+            outputBase: initializedConfig.outputBase,
+            cmd: "build \(targetToUse) --nobuild",
+            rootUri: initializedConfig.rootUri
         )
         let aquery: RunningProcess? = try? commandRunner.bazelIndexAction(
-            initializedConfig: initializedConfig,
+            baseConfig: initializedConfig.baseConfig,
+            outputBase: initializedConfig.aqueryOutputBase,
             cmd: "build \(targetToUse) --nobuild",
-            outputBasePrefix: "-aquery"
+            rootUri: initializedConfig.rootUri
         )
         build?.setTerminationHandler { code in
             logger.info("Finished warming up the build output base! (status code: \(code))")

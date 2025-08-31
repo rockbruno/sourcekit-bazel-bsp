@@ -71,9 +71,18 @@ enum CompilerArgumentsProcessor {
     ) -> [String] {
 
         let devDir = initializedConfig.devDir
-        let outputPath = initializedConfig.outputPath
         let rootUri = initializedConfig.rootUri
-        let outputBase = initializedConfig.outputBase
+
+        // We ran the aquery on the aquery output base, but we need this
+        // to reflect the data of the real build output base.
+        let outputPath = initializedConfig.outputPath.replacingOccurrences(
+            of: initializedConfig.aqueryOutputBase,
+            with: initializedConfig.outputBase
+        )
+        let outputBase = initializedConfig.outputBase.replacingOccurrences(
+            of: initializedConfig.aqueryOutputBase,
+            with: initializedConfig.outputBase
+        )
 
         var compilerArguments: [String] = []
 

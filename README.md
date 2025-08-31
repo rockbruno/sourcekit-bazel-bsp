@@ -37,8 +37,7 @@
 - Download and install [the official Swift extension](https://marketplace.visualstudio.com/items?itemName=swiftlang.swift-vscode) for Cursor / VSCode.
 - On Cursor / VSCode, open a workspace containing the repository in question.
 - On the settings page for the Swift extension, enable `SourceKit-LSP: Background Indexing` at the **workspace level**. It **has** to be workspace settings; this specific setting is not supported at the folder level.
-- **(Optional)** Configure your workspace to use a custom `sourcekit-lsp` binary by placing the provided binary from the release archive on a place of your choice, running `Cmd + P` on the IDE, typing `> Preferences: Open Workspace Settings (JSON)`, and adding the following entry to the JSON file:
-  - `"swift.sourcekit-lsp.serverPath": "(absolute path to the sourcekit-lsp binary to use)`
+- **(Optional)** Configure your workspace to use a custom `sourcekit-lsp` binary by placing the provided binary from the release archive at a place of your choice, running _Cmd+P_ on the IDE, typing `> Preferences: Open Workspace Settings (JSON)`, and adding the following entry to the JSON file: `"swift.sourcekit-lsp.serverPath": "(absolute path to the sourcekit-lsp binary to use)"`
   - This is not strictly necessary. However, as we currently make use of LSP features that are not yet shipped to Xcode, you may face performance and other usability issues when using the version that is shipped with Xcode. Consider using the version provided alongside sourcekit-bazel-bsp (or compiling your own) for the best experience.
 
 The next step is to integrate sourcekit-bazel-bsp with your project. There are currently two ways you can do it:
@@ -48,27 +47,28 @@ The next step is to integrate sourcekit-bazel-bsp with your project. There are c
 - Add the following to your `MODULE.bazel` file:
 
 ```python
-bazel_dep(name = "sourcekit_bazel_bsp", version = "0.0.6", repo_name = "sourcekit_bazel_bsp")
+bazel_dep(name = "sourcekit_bazel_bsp", version = "0.1.0", repo_name = "sourcekit_bazel_bsp")
 ```
 
 - Define a `setup_sourcekit_bsp` rule in a BUILD.bazel file in the root of your workspace and [configure it](rules/setup_sourcekit_bsp.bzl#L48) for your desired setup:
 
-  ```python
-  load("@sourcekit_bazel_bsp//rules:setup_sourcekit_bsp.bzl")
+```python
+load("@sourcekit_bazel_bsp//rules:setup_sourcekit_bsp.bzl")
 
-  setup_sourcekit_bsp(
-    name = "setup_sourcekit_bsp",
-    ...
-  )
-  ```
+setup_sourcekit_bsp(
+  name = "setup_sourcekit_bsp",
+  ...
+)
+```
 
-- Run `bazel run {path to the rule, e.g //:setup_sourcekit_bsp}`
-- This will result in a `.bsp/` folder being added to your workspace. Users should then re-run the above command whenever the configuration changes.
+- Run `bazel run {path to the rule, e.g //:setup_sourcekit_bsp}`.
+
+This will result in a `.bsp/` folder being added to your workspace. Users should then re-run the above command whenever the configuration changes.
 
 #### Integrating Manually
 
-    - Copy the `.bsp/` folder on this repository to the root of the repository you'd like to use this tool for.
-    - Edit the `argv` fields in `.bsp/config.json` to match the details for your app / setup. You can see all available options by running `sourcekit-bazel-bsp serve --help`.
+- Copy the `.bsp/` folder on this repository to the root of the repository you'd like to use this tool for.
+- Edit the `argv` fields in `.bsp/config.json` to match the details for your app / setup. You can see all available options by running `sourcekit-bazel-bsp serve --help`.
 
 #### After Integrating
 

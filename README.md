@@ -37,6 +37,9 @@
 - Download and install [the official Swift extension](https://marketplace.visualstudio.com/items?itemName=swiftlang.swift-vscode) for Cursor / VSCode.
 - On Cursor / VSCode, open a workspace containing the repository in question.
 - On the settings page for the Swift extension, enable `SourceKit-LSP: Background Indexing` at the **workspace level**. It **has** to be workspace settings; this specific setting is not supported at the folder level.
+- **(Optional)** Configure your workspace to use a custom `sourcekit-lsp` binary by placing the provided binary from the release archive on a place of your choice, running `Cmd + P` on the IDE, typing `> Preferences: Open Workspace Settings (JSON)`, and adding the following entry to the JSON file:
+  - `"swift.sourcekit-lsp.serverPath": "(absolute path to the sourcekit-lsp binary to use)`
+  - This is not strictly necessary. However, as we currently make use of LSP features that are not yet shipped to Xcode, you may face performance and other usability issues when using the version that is shipped with Xcode. Consider using the version provided alongside sourcekit-bazel-bsp (or compiling your own) for the best experience.
 
 The next step is to integrate sourcekit-bazel-bsp with your project. There are currently two ways you can do it:
 

@@ -94,7 +94,10 @@ final class WatchedFileChangeHandler {
             // FIXME: This is quite expensive, but the easier thing to do. We can try improving this later.
             if !createdFiles.isEmpty {
                 let taskId = TaskId(id: "watchedFiles-\(UUID().uuidString)")
-                connection?.startWorkTask(id: taskId, title: "sourcekit-bazel-bsp: Re-building the graph due to created files...")
+                connection?.startWorkTask(
+                    id: taskId,
+                    title: "sourcekit-bazel-bsp: Re-building the graph due to created files..."
+                )
                 targetStore.clearCache()
                 do {
                     _ = try targetStore.fetchTargets()

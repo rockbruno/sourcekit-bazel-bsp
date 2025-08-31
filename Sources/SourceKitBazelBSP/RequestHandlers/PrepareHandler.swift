@@ -35,7 +35,7 @@ final class PrepareHandler {
     private weak var connection: LSPConnection?
 
     // The current Bazel build is always stored so that we can cancel it if requested by the LSP.
-    private var currentTaskLock = OSAllocatedUnfairLock<(RunningProcess,RequestID)?>(initialState: nil)
+    private var currentTaskLock = OSAllocatedUnfairLock<(RunningProcess, RequestID)?>(initialState: nil)
 
     init(
         initializedConfig: InitializedServerConfig,
@@ -62,7 +62,10 @@ final class PrepareHandler {
         }
 
         let taskId = TaskId(id: "buildPrepare-\(id.description)")
-        connection?.startWorkTask(id: taskId, title: "sourcekit-bazel-bsp: Building \(targetsToBuild.count) target(s)...")
+        connection?.startWorkTask(
+            id: taskId,
+            title: "sourcekit-bazel-bsp: Building \(targetsToBuild.count) target(s)..."
+        )
         do {
             let labels = try targetStore.stateLock.withLockUnchecked {
                 return try targetsToBuild.map {
@@ -84,7 +87,11 @@ final class PrepareHandler {
         }
     }
 
-    func build(bazelLabels labelsToBuild: [String], id: RequestID, completion: @escaping ((ResponseError?) -> Void)) throws {
+    func build(
+        bazelLabels labelsToBuild: [String],
+        id: RequestID,
+        completion: @escaping ((ResponseError?) -> Void)
+    ) throws {
         logger.info("Will build \(labelsToBuild.joined(separator: ", "))")
 
         nonisolated(unsafe) let completion = completion

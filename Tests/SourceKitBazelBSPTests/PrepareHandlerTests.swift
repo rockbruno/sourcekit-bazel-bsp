@@ -66,7 +66,6 @@ struct PrepareHandlerTests {
             semaphore.signal()
         }
 
-
         #expect(semaphore.wait(timeout: .now() + 1) == .success)
 
         let ranCommands = commandRunner.commands

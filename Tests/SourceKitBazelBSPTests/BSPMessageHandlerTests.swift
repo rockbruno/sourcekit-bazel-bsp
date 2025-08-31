@@ -91,11 +91,9 @@ struct BSPMessageHandlerTests {
         let semaphore = DispatchSemaphore(value: 0)
         let handler = BSPMessageHandler()
         handler.register(requestHandler: { (request: BuildTargetSourcesRequest, id, completion) in
-            let unchecked = UncheckedCompletion<Result<BuildTargetSourcesResponse, Error>>({ result in
-                completion(result)
-            })
+            nonisolated(unsafe) let completion = completion
             queue.async {
-                unchecked.block?(.success(BuildTargetSourcesResponse(items: [])))
+                completion(.success(BuildTargetSourcesResponse(items: [])))
             }
         })
 

@@ -61,10 +61,10 @@ struct PrepareHandlerTests {
         )
 
         let semaphore = DispatchSemaphore(value: 0)
-        try handler.build(bazelLabels: baseConfig.targets, id: RequestID.number(1), completion: UncheckedCompletion({ error in
+        try handler.build(bazelLabels: baseConfig.targets, id: RequestID.number(1)) { error in
             #expect(error == nil)
             semaphore.signal()
-        }))
+        }
 
 
         #expect(semaphore.wait(timeout: .now() + 1) == .success)
@@ -107,10 +107,10 @@ struct PrepareHandlerTests {
         )
 
         let semaphore = DispatchSemaphore(value: 0)
-        try handler.build(bazelLabels: baseConfig.targets, id: RequestID.number(1), completion: UncheckedCompletion({ error in
+        try handler.build(bazelLabels: baseConfig.targets, id: RequestID.number(1)) { error in
             #expect(error == nil)
             semaphore.signal()
-        }))
+        }
 
         #expect(semaphore.wait(timeout: .now() + 1) == .success)
 

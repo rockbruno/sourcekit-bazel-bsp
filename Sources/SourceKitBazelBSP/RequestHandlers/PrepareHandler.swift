@@ -69,23 +69,25 @@ final class PrepareHandler {
                     try targetStore.platformBuildLabel(forBSPURI: $0.uri).0
                 }
             }
-            try build(bazelLabels: labels, id: id, completion: UncheckedCompletion({ [connection] error in
+            nonisolated(unsafe) let reply = reply
+            try build(bazelLabels: labels, id: id) { [connection] error in
                 if let error = error {
                     connection?.finishTask(id: taskId, status: .error)
                     reply(.failure(error))
                 }
                 connection?.finishTask(id: taskId, status: .ok)
                 reply(.success(VoidResponse()))
-            }))
+            }
         } catch {
             connection?.finishTask(id: taskId, status: .error)
             reply(.failure(error))
         }
     }
 
-    func build(bazelLabels labelsToBuild: [String], id: RequestID, completion: UncheckedCompletion<ResponseError?>) throws {
+    func build(bazelLabels labelsToBuild: [String], id: RequestID, completion: @escaping ((ResponseError?) -> Void)) throws {
         logger.info("Will build \(labelsToBuild.joined(separator: ", "))")
 
+        nonisolated(unsafe) let completion = completion
         try currentTaskLock.withLock { [commandRunner, initializedConfig] currentTask in
             // Build the provided targets, on our special output base and taking into account special index flags.
             let process = try commandRunner.bazelIndexAction(
@@ -97,11 +99,11 @@ final class PrepareHandler {
             process.setTerminationHandler { code in
                 logger.info("Finished building! (Request ID: \(id.description), status code: \(code))")
                 if code == 0 {
-                    completion.block?(nil)
+                    completion(nil)
                 } else if code == 8 {
-                    completion.block?(ResponseError.cancelled)
+                    completion(ResponseError.cancelled)
                 } else {
-                    completion.block?(ResponseError(code: .internalError, message: "The bazel build failed."))
+                    completion(ResponseError(code: .internalError, message: "The bazel build failed."))
                 }
             }
             currentTask = (process, id)
@@ -122,25 +124,6 @@ extension PrepareHandler: CancelRequestObserver {
             }
             data.0.terminate()
             currentTaskData = nil
-        }
-    }
-}
-
-// This shouldn't be necessary in practice.
-// The only reason this exists is because I couldn't find another way to get the compiler
-// to shut up about Sendable stuff.
-struct UncheckedCompletion<T>: @unchecked Sendable {
-    typealias Block = (T) -> Void
-
-    let block: Block?
-
-    init(_ block: Block?) {
-        if let block {
-            self.block = {
-                block($0)
-            }
-        } else {
-            self.block = nil
         }
     }
 }

@@ -71,7 +71,7 @@ struct WatchedFileChangeHandlerTests {
         )
 
         // Act
-        try handler.onWatchedFilesDidChange(notification)
+        handler.onWatchedFilesDidChange(notification)
 
         // Assert
         #expect(!targetStore.clearCacheCalled, "clearCache should not be called for deleted files")
@@ -124,7 +124,7 @@ struct WatchedFileChangeHandlerTests {
         )
 
         // Act
-        try handler.onWatchedFilesDidChange(notification)
+        handler.onWatchedFilesDidChange(notification)
 
         // Assert
         #expect(targetStore.clearCacheCalled, "clearCache should be called for created files")
@@ -166,7 +166,7 @@ struct WatchedFileChangeHandlerTests {
         )
 
         // Act
-        try handler.onWatchedFilesDidChange(notification)
+        handler.onWatchedFilesDidChange(notification)
 
         // Assert
         #expect(!targetStore.clearCacheCalled, "clearCache should not be called for changed files")
@@ -216,7 +216,7 @@ struct WatchedFileChangeHandlerTests {
         )
 
         // Act
-        try handler.onWatchedFilesDidChange(notification)
+        handler.onWatchedFilesDidChange(notification)
 
         // Assert
         #expect(targetStore.clearCacheCalled, "clearCache should be called when there are created files")
@@ -272,7 +272,7 @@ struct WatchedFileChangeHandlerTests {
         )
 
         // Act
-        try handler.onWatchedFilesDidChange(notification)
+        handler.onWatchedFilesDidChange(notification)
 
         // Assert - should handle gracefully without targets
         // The observer is still called but with an empty set when files have no targets
@@ -305,7 +305,7 @@ struct WatchedFileChangeHandlerTests {
         )
 
         // Act
-        try handler.onWatchedFilesDidChange(notification)
+        handler.onWatchedFilesDidChange(notification)
 
         // Assert - the handler should continue processing despite the error
         #expect(targetStore.clearCacheCalled)
@@ -337,7 +337,7 @@ struct WatchedFileChangeHandlerTests {
         )
 
         // Act
-        try handler.onWatchedFilesDidChange(notification)
+        handler.onWatchedFilesDidChange(notification)
 
         // Assert - despite the observer error, the LSP connection should still receive notification
         #expect(observer.invalidateCalled)

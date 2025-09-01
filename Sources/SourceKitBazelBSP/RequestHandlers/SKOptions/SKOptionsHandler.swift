@@ -76,13 +76,14 @@ final class SKOptionsHandler: InvalidatedTargetObserver {
             "Fetching SKOptions for \(targetUri.stringValue), target: \(bazelTarget), language: \(request.language)"
         )
 
-        let args = try extractor.compilerArgs(
-            forDoc: request.textDocument.uri,
-            inTarget: bazelTarget,
-            underlyingLibrary: underlyingLibrary,
-            language: request.language,
-            platform: platform
-        ) ?? []
+        let args =
+            try extractor.compilerArgs(
+                forDoc: request.textDocument.uri,
+                inTarget: bazelTarget,
+                underlyingLibrary: underlyingLibrary,
+                language: request.language,
+                platform: platform
+            ) ?? []
 
         // If no compiler arguments are found, return nil to avoid sourcekit indexing with no input files
         guard !args.isEmpty else {

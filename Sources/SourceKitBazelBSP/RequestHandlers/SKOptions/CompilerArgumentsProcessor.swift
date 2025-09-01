@@ -77,25 +77,23 @@ enum CompilerArgumentsProcessor {
         // to reflect the data of the real build output base.
         let outputPath: String = {
             let base: String = initializedConfig.outputPath
-            if initializedConfig.aqueryOutputBase != initializedConfig.outputBase {
-                return base.replacingOccurrences(
-                    of: initializedConfig.aqueryOutputBase,
-                    with: initializedConfig.outputBase
-                )
-            } else {
+            guard initializedConfig.aqueryOutputBase != initializedConfig.outputBase else {
                 return base
             }
+            return base.replacingOccurrences(
+                of: initializedConfig.aqueryOutputBase,
+                with: initializedConfig.outputBase
+            )
         }()
         let outputBase = {
             let base: String = initializedConfig.outputBase
-            if initializedConfig.aqueryOutputBase != initializedConfig.outputBase {
-                return base.replacingOccurrences(
-                    of: initializedConfig.aqueryOutputBase,
-                    with: initializedConfig.outputBase
-                )
-            } else {
+            guard initializedConfig.aqueryOutputBase != initializedConfig.outputBase else {
                 return base
             }
+            return base.replacingOccurrences(
+                of: initializedConfig.aqueryOutputBase,
+                with: initializedConfig.outputBase
+            )
         }()
 
         var compilerArguments: [String] = []

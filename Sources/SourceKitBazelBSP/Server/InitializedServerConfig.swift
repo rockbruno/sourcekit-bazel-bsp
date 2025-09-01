@@ -40,10 +40,9 @@ struct InitializedServerConfig: Equatable {
     // We currently use a third output base for aquerying
     // to prevent extracting compiler args from being blocked by index builds.
     var aqueryOutputBase: String {
-        if baseConfig.useSeparateOutputBaseForAquery {
-            return outputBase + "-aq"
-        } else {
+        guard baseConfig.useSeparateOutputBaseForAquery else {
             return outputBase
         }
+        return outputBase + "-aq"
     }
 }

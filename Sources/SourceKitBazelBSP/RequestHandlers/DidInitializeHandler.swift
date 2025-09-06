@@ -23,6 +23,10 @@ import LanguageServerProtocol
 
 private let logger = makeFileLevelBSPLogger()
 
+protocol DidInitializeObserver: AnyObject {
+    func didInitializeHandlerFinishedPreparations()
+}
+
 /// Handles the `build/initialized` notification.
 ///
 /// This is called right after returning from the `initialize` request.
@@ -31,15 +35,18 @@ final class DidInitializeHandler: @unchecked Sendable {
 
     private let initializedConfig: InitializedServerConfig
     private let commandRunner: CommandRunner
+    private let observers: [DidInitializeObserver]
 
     private var buildWarmupJob: RunningProcess?
     private var aqueryWarmupJob: RunningProcess?
 
     init(
         initializedConfig: InitializedServerConfig,
+        observers: [DidInitializeObserver],
         commandRunner: CommandRunner = ShellCommandRunner(),
     ) {
         self.initializedConfig = initializedConfig
+        self.observers = observers
         self.commandRunner = commandRunner
     }
 
@@ -67,6 +74,7 @@ final class DidInitializeHandler: @unchecked Sendable {
             }
             self?.buildWarmupJob = nil
             guard initializedConfig.aqueryOutputBase != initializedConfig.outputBase else {
+                self.notifyObservers()
                 return
             }
             // FIXME: We have to warm up the aqueries *after* the build, otherwise we can run
@@ -77,18 +85,14 @@ final class DidInitializeHandler: @unchecked Sendable {
                 cmd: "query \(targetToUse)",
                 rootUri: initializedConfig.rootUri
             )
-            self?.aqueryWarmupJob?.setTerminationHandler { [weak self] code, stderr in
-                if code == 0 {
-                    logger.info("Finished warming up the aquery output base!")
-                } else {
-                    logger.logFullObjectInMultipleLogMessages(
-                        level: .error,
-                        header: "Failed to warm up the aquery output base.",
-                        stderr
-                    )
-                }
-                self?.aqueryWarmupJob = nil
+            aquery?.setTerminationHandler { code in
+                logger.info("Finished warming up the aquery output base! (status code: \(code))")
+                self.notifyObservers()
             }
         }
+    }
+
+    func notifyObservers() {
+        observers.forEach { $0.didInitializeHandlerFinishedPreparations() }
     }
 }

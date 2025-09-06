@@ -45,11 +45,9 @@ final class BazelTargetCompilerArgsExtractor {
     private let commandRunner: CommandRunner
     private let aquerier: BazelTargetAquerier
     private let config: InitializedServerConfig
-    private var argsCache = [String: [String]?]()
 
-    // This class needs synchronization because we might be requested to wipe the cache
-    // in the middle of an aquery request.
-    private let stateLock = OSAllocatedUnfairLock()
+    private var argsCache = [String: [String]?]()
+    private var sdkRootCache = [String: String]()
 
     init(
         commandRunner: CommandRunner = ShellCommandRunner(),
@@ -66,11 +64,9 @@ final class BazelTargetCompilerArgsExtractor {
         inTarget bazelTarget: String,
         underlyingLibrary: String,
         language: Language,
-        platform: TopLevelRuleType
+        topLevelRuleType: TopLevelRuleType,
+        targetsToQuery: [String]
     ) throws -> [String]? {
-        stateLock.lock()
-        defer { stateLock.unlock() }
-
         // Ignore Obj-C header requests, since these don't compile
         guard !textDocument.stringValue.hasSuffix(".h") else {
             return nil
@@ -101,24 +97,17 @@ final class BazelTargetCompilerArgsExtractor {
             return cached
         }
 
+        // First, run an aquery against all the provided build_test targets.
+        let resultAquery = try runAqueryForArgsExtraction(withTargets: targetsToQuery)
+
         // First, determine the SDK root based on the platform the target is built for.
         let platformSdk = platform.sdkName
         guard let sdkRoot: String = config.sdkRootPaths[platformSdk] else {
             throw BazelTargetCompilerArgsExtractorError.sdkRootNotFound(platformSdk)
         }
 
-        // Then, run an aquery against the build_test target in question,
-        // filtering for the "real" underlying library.
-        let resultAquery = try aquerier.aquery(
-            target: bazelTarget,
-            filteringFor: underlyingLibrary,
-            config: config,
-            mnemonics: ["SwiftCompile", "ObjcCompile"],
-            additionalFlags: ["--noinclude_artifacts", "--noinclude_aspects", "--features=-compiler_param_file"]
-        )
-
         // Then, extract the compiler arguments for the target file from the resulting aquery.
-        let processedArgs = CompilerArgumentsProcessor.extractAndProcessCompilerArgs(
+        let processedArgs = try CompilerArgumentsProcessor.extractAndProcessCompilerArgs(
             fromAquery: resultAquery,
             bazelTarget: underlyingLibrary,
             contentToQuery: contentToQuery,
@@ -130,10 +119,19 @@ final class BazelTargetCompilerArgsExtractor {
         return processedArgs
     }
 
+    func runAqueryForArgsExtraction(
+        withTargets targets: [String],
+    ) throws -> AqueryResult {
+        try aquerier.aquery(
+            targets: targets,
+            config: config,
+            mnemonics: ["SwiftCompile", "ObjcCompile"],
+            additionalFlags: ["--noinclude_artifacts", "--noinclude_aspects"]
+        )
+    }
+
     func clearCache() {
-        stateLock.withLockUnchecked {
-            argsCache = [:]
-            aquerier.clearCache()
-        }
+        argsCache = [:]
+        sdkRootCache = [:]
     }
 }

@@ -61,38 +61,13 @@ public struct RunningProcess: Sendable {
     }
 
     public func outputs<T: DataConvertible>() -> (T, String) {
-        nonisolated(unsafe) var stdoutData: Data = Data()
-        nonisolated(unsafe) var stderrData: Data = Data()
-        let group = DispatchGroup()
-
-        // We need to read the pipes continuously to avoid hitting buffer limits.
-        // See https://github.com/spotify/sourcekit-bazel-bsp/pull/65
-        group.enter()
-        stdout.fileHandleForReading.readabilityHandler = { stdoutFileHandle in
-            let tmpstdoutData = stdoutFileHandle.availableData
-            if tmpstdoutData.isEmpty {  // EOF
-                stdout.fileHandleForReading.readabilityHandler = nil
-                group.leave()
-            } else {
-                stdoutData.append(tmpstdoutData)
-            }
-        }
-
-        group.enter()
-        stderr.fileHandleForReading.readabilityHandler = { stderrFileHandle in
-            let tmpstderrData = stderrFileHandle.availableData
-            if tmpstderrData.isEmpty {  // EOF
-                stderr.fileHandleForReading.readabilityHandler = nil
-                group.leave()
-            } else {
-                stderrData.append(tmpstderrData)
-            }
-        }
+        // Drain stdout/err first to avoid deadlocking when the output is buffered.
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
 
         wrappedProcess.waitUntilExit()
-        group.wait()
 
-        let stdoutResult = T.convert(from: stdoutData)
+        let stdoutResult = T.convert(from: data)
         let stderrResult = String(data: stderrData, encoding: .utf8) ?? "(no stderr)"
 
         return (stdoutResult, stderrResult)

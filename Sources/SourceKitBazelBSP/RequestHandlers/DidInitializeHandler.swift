@@ -62,7 +62,7 @@ final class DidInitializeHandler: @unchecked Sendable {
             cmd: "query \(targetToUse)",
             rootUri: initializedConfig.rootUri
         )
-        buildWarmupJob?.setTerminationHandler { [weak self, initializedConfig] code, stderr in
+        buildWarmupJob?.setTerminationHandler { [weak self] code, stderr in
             if code == 0 {
                 logger.info("Finished warming up the build output base!")
             } else {
@@ -71,6 +71,9 @@ final class DidInitializeHandler: @unchecked Sendable {
                     header: "Failed to warm up the build output base.",
                     stderr
                 )
+            }
+            guard let self = self else {
+                return
             }
             self?.buildWarmupJob = nil
             guard initializedConfig.aqueryOutputBase != initializedConfig.outputBase else {
@@ -85,9 +88,18 @@ final class DidInitializeHandler: @unchecked Sendable {
                 cmd: "query \(targetToUse)",
                 rootUri: initializedConfig.rootUri
             )
-            aquery?.setTerminationHandler { code in
-                logger.info("Finished warming up the aquery output base! (status code: \(code))")
-                self.notifyObservers()
+            aqueryWarmupJob?.setTerminationHandler { [weak self] code, stderr in
+                if code == 0 {
+                    logger.info("Finished warming up the aquery output base!")
+                } else {
+                    logger.logFullObjectInMultipleLogMessages(
+                        level: .error,
+                        header: "Failed to warm up the aquery output base.",
+                        stderr
+                    )
+                }
+                self?.aqueryWarmupJob = nil
+                self?.notifyObservers()
             }
         }
     }

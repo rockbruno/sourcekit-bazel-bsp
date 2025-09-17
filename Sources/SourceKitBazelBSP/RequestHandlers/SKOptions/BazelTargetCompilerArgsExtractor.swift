@@ -126,7 +126,11 @@ final class BazelTargetCompilerArgsExtractor {
             targets: targets,
             config: config,
             mnemonics: ["SwiftCompile", "ObjcCompile"],
-            additionalFlags: ["--noinclude_artifacts", "--noinclude_aspects"]
+            additionalFlags: [
+                "--noinclude_artifacts",
+                "--noinclude_aspects",
+                "--features=-compiler_param_file", // Context: https://github.com/spotify/sourcekit-bazel-bsp/pull/60
+            ]
         )
     }
 

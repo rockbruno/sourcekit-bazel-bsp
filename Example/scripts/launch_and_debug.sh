@@ -2,35 +2,76 @@
 
 set -e
 
+function uri_encode() {
+    echo "${1}" | jq -Rj @uri
+}
+
+function join_list_args() {
+    local _key=$1
+    shift
+    local _list=("$@")
+    local _result=()
+    for i in {1..$#_list}; do
+        local command="${_list[${i}]}"
+        local encoded_command=$(uri_encode "${command}")
+        _result+=("${_key}=${encoded_command}")
+    done
+    echo $(IFS='&'; echo "${_result[*]}")
+}
+
 # When asking Bazel to launch a simulator, we need to intercept
 # the launched process' PID to be able to debug it later on.
 # We do this by asking it to write this info to a file.
 # These two paths are also hardcoded in the lldb_inject_settings.py script.
-pid_json=/tmp/lldb-bridge/launch_info
-output_base_path=/tmp/lldb-bridge/output_base
+INFO_JSON=$(mktemp)
 
-rm ${pid_json} > /dev/null 2>&1 || true
-rm ${output_base_path} > /dev/null 2>&1 || true
-
-# lldb_inject_settings.py reads this to to run some necessary lldb commands in advance.
-bazelisk info output_base > ${output_base_path}
-
+# FIXME: Could not figure out how to make the output show up on the dedicated
+# debug console. So we need to keep this script alive and display it here in the meantime.
 BAZEL_APPLE_PREFER_PERSISTENT_SIMS=1 \
-BAZEL_APPLE_LAUNCH_INFO_PATH=${pid_json} \
+BAZEL_APPLE_LAUNCH_INFO_PATH=${INFO_JSON} \
 BAZEL_SIMCTL_LAUNCH_FLAGS="--wait-for-debugger --stdout=$(tty) --stderr=$(tty)" \
-bazelisk run //HelloWorld:HelloWorld
+bazelisk run "${BAZEL_LABEL_TO_RUN}"
 
-pid=$(jq -r '.pid' "${pid_json}")
-
-xcode_path=$(xcode-select -p)
-debugserver_path="${xcode_path}/../SharedFrameworks/LLDB.framework/Versions/A/Resources/debugserver"
-
-# Just for sanity, kill any other debugservers that might be running
-pgrep -lfa Resources/debugserver | awk '{print $1}' | xargs kill -9
-
-# Launch the debugserver. The output of this command will signal the IDE to launch the lldb extension,
-# which is hardcoded to connect to port 6667.
-${debugserver_path} "localhost:6667" --attach ${pid}
+WORKSPACE_ROOT=$(pwd)
+OUTPUT_BASE=$(bazelisk info output_base)
+PID=$(jq -r '.pid' "${INFO_JSON}")
+ATTACH_COMMANDS=()
+TERMINATE_COMMANDS=()
 
 # Kill the app when debugging ends, just like in Xcode.
-kill -9 ${pid} > /dev/null 2>&1 || true
+TERMINATE_COMMANDS+=("?platform shell kill -- -9 ${PID}")
+
+# Set `CWD` to the Bazel execution root so relative paths in binaries work.
+#
+# This is needed because we use the `oso_prefix_is_pwd` feature, which makes the
+# paths to archives relative to the exec root.
+ATTACH_COMMANDS+=("platform settings -w \"${OUTPUT_BASE}/execroot/_main\"")
+
+# Adjust the source map.
+#
+# The source map will be initialized to the workspace. Need to resolve external
+# paths to the stable external directory. Then need to resolve generated files
+# to the execution root. We set it for `./` instead of `./bazel-out/` to allow
+# the convenience symlink to be used if it exists.
+ATTACH_COMMANDS+=("settings insert-before target.source-map 0 \"./external/\" \"${OUTPUT_BASE}/external/\"")
+ATTACH_COMMANDS+=("settings append target.source-map \"./\" \"${OUTPUT_BASE}/execroot/_main/\"")
+
+# Finally, connect to the app.
+ATTACH_COMMANDS+=("process attach --pid ${PID}")
+
+ENCODED_ROOT=$(uri_encode "${WORKSPACE_ROOT}")
+ENCODED_NAME=$(uri_encode "Debug ${BAZEL_LABEL_TO_RUN}")
+BASE_DAP_URL="cursor://llvm-vs-code-extensions.lldb-dap"
+
+ATTACH_COMMANDS_ARG=$(join_list_args "attachCommands" ${ATTACH_COMMANDS[@]})
+TERMINATE_COMMANDS_ARG=$(join_list_args "terminateCommands" ${TERMINATE_COMMANDS[@]})
+
+echo "Launching LLDB..."
+FULL_DAP_LAUNCH_URL="${BASE_DAP_URL}/start?name=${ENCODED_NAME}&request=attach&debuggerRoot=${ENCODED_ROOT}&${ATTACH_COMMANDS_ARG}&${TERMINATE_COMMANDS_ARG}"
+open "${FULL_DAP_LAUNCH_URL}"
+
+trap 'kill -9 ${PID}' SIGKILL
+
+# Keep the terminal alive until the app is killed.
+# FIXME: Only necessary because of the stdout-related FIXME mentioned in the beginning
+lsof -p ${PID} +r 1 &>/dev/null

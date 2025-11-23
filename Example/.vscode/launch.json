@@ -1,20 +1,4 @@
-{
-    "configurations": [
-        {
-            "name": "Debug HelloWorld",
-            "type": "lldb-dap",
-            "request": "attach",
-            "preLaunchTask": "_launch_helloworld",
-            "debuggerRoot": "${workspaceFolder}",
-            "attachCommands": [
-                "command script import '${workspaceFolder}/scripts/lldb_inject_settings.py",
-                "process connect connect://localhost:6667",
-            ],
-            "internalConsoleOptions": "openOnSessionStart",
-            "timeout": 1000,
-        },
-    ],
-    "options": {
-        "console": "integratedTerminal",
-    }
-}
+// TODO: Add a launch task that routes back to the regular task.
+// I tried many different things, but could not yet find something that works flawlessly.
+// Everything causes issues in one way or another.
+{}

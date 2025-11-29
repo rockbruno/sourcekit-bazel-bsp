@@ -69,8 +69,15 @@
         "instanceLimit": 1
       }
     },
+    // This is the task that handles all of the launching and debug logic.
+    // Do not use this directly; use the launch task instead.
+    // The only reason this separation exists is because there doesn't seem to be
+    // a native way to have a regular task show up in the Debug tab, so I had to make
+    // a hidden background task that is triggered by an empty launch task to get around that.
     {
-      "label": "Launch and Debug HelloWorld",
+      "label": "_debug_helloworld",
+      "hide": true,
+      "isBackground": true,
       "type": "shell",
       "command": "./scripts/launch_and_debug.sh",
       "options": {
@@ -98,6 +105,21 @@
             "message": 5
           }
         },
+        {
+          "pattern": [
+            {
+              "regexp": "\\b\\B",
+              "file": 1,
+              "location": 2,
+              "message": 3
+            },
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^.*Building....*",
+            "endsPattern": "^.*Launching LLDB...*"
+          }
+        }
       ],
       "runOptions": {
         "instanceLimit": 1,

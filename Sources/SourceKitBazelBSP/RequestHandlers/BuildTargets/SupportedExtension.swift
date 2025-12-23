@@ -26,12 +26,16 @@ private let logger = makeFileLevelBSPLogger()
 // Contains data about all the file types the BSP knows how to parse.
 // See also: DependencyRuleType.swift, TopLevelRuleType.swift
 enum SupportedExtension: String, CaseIterable {
+    case C
     case c
     case cc
     case cpp
     case cxx
     case inc
+    case ipp
+    case H
     case h
+    case hh
     case hpp
     case m
     case mm
@@ -39,20 +43,19 @@ enum SupportedExtension: String, CaseIterable {
 
     var kind: SourceKitSourceItemKind {
         switch self {
-        case .inc, .h, .hpp: return .header
-        case .c, .cc, .cpp, .cxx: return .source
+        case .H, .h, .hh, .hpp, .inc: return .header
+        case .C, .c, .cc, .cpp, .cxx, .ipp: return .source
         case .m, .mm: return .source
         case .swift: return .source
         }
     }
 
-    // Source: https://github.com/swiftlang/sourcekit-lsp/blob/7495f5532fdb17184d69518f46a207e596b26c64/Sources/LanguageServerProtocolExtensions/Language%2BInference.swift#L33
     var language: Language {
         switch self {
         case .c: return .c
-        case .cpp, .cc, .cxx, .inc, .hpp: return .cpp
+        case .C, .cpp, .cc, .cxx, .H, .hh, .hpp, .inc, .ipp: return .cpp
         case .m: return .objective_c
-        case .mm, .h: return .objective_cpp
+        case .mm, .h: return .objective_cpp // Source: https://github.com/swiftlang/sourcekit-lsp/blob/7495f5532fdb17184d69518f46a207e596b26c64/Sources/LanguageServerProtocolExtensions/Language%2BInference.swift#L33
         case .swift: return .swift
         }
     }

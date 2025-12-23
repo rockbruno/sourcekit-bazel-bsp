@@ -36,7 +36,6 @@ enum BazelTargetQuerierParserError: Error, LocalizedError {
     case unexpectedTargetType(Int)
     case noTopLevelTargets([TopLevelRuleType])
     case missingPathExtension(String)
-    case unexpectedFileExtension(String, String)
 
     var errorDescription: String? {
         switch self {
@@ -61,7 +60,6 @@ enum BazelTargetQuerierParserError: Error, LocalizedError {
                 \(rules.map { $0.rawValue }.joined(separator: ", "))
                 """
         case .missingPathExtension(let path): return "Missing path extension for \(path)"
-        case .unexpectedFileExtension(let pathExtension, let file): return "Unexpected file extension: \(pathExtension) for \(file)"
         }
     }
 }
@@ -373,17 +371,10 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
         let hdrsAttribute = rule.attribute.first { $0.name == "hdrs" }?.stringListValue ?? []
         let srcs: [URI] = (srcsAttribute + hdrsAttribute).compactMap {
             guard let srcUri = srcToUriMap[$0] else {
-                // If the file is not part of the original array provided to this function,
-                // then this is likely a generated file.
-                // FIXME: Generated files are handled by the `generated file` mmnemonic,
-                // which we don't handle today. Ignoring them for now.
-                logger.debug(
-                    "Skipping \($0, privacy: .public): Source does not exist, most likely a generated file."
-                )
                 return nil
             }
             return srcUri
-        }.sorted(by: { $0.stringValue < $1.stringValue })
+        }
         return SourcesItem(
             target: targetId,
             sources: try srcs.map {
@@ -404,12 +395,18 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
         guard let pathExtension = src.fileURL?.pathExtension else {
             throw BazelTargetQuerierParserError.missingPathExtension(src.stringValue)
         }
-        guard let extensionKind = SupportedExtension(rawValue: pathExtension) else {
-            throw BazelTargetQuerierParserError.unexpectedFileExtension(pathExtension, src.stringValue)
+        let kind: SourceKitSourceItemKind
+        let language: Language?
+
+        if let extensionKind = SupportedExtension(rawValue: pathExtension) {
+            kind = extensionKind.kind
+            language = extensionKind.language
+        } else {
+            logger.error("Unexpected file extension \(pathExtension) for \(src.stringValue). Will recover by setting `language` to `nil`.")
+            kind = .source
+            language = nil
         }
 
-        let kind: SourceKitSourceItemKind = extensionKind.kind
-        let language: Language = extensionKind.language
         let copyDestinations = srcCopyDestinations(for: src, rootUri: rootUri, executionRoot: executionRoot)
 
         return SourceItem(
@@ -464,16 +461,14 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
         let attrName = isBuildTestRule ? "targets" : "deps"
         let thisRule = rule.name
         let depsAttribute = rule.attribute.first { $0.name == attrName }?.stringListValue ?? []
-        return depsAttribute.compactMap { label in
+        let implDeps = rule.attribute.first { $0.name == "implementation_deps" }?.stringListValue ?? []
+        return (depsAttribute + implDeps).compactMap { label in
             guard let (depUri, depRealLabel) = depLabelToUriMap[label] else {
-                logger.debug(
-                    "Skipping dependency \(label, privacy: .public): not considered a valid dependency"
-                )
                 return nil
             }
             dependencyGraph[thisRule, default: []].append(depRealLabel)
             return depUri
-        }.sorted(by: { $0.uri.stringValue < $1.uri.stringValue })
+        }
     }
 
     private func traverseGraph(
@@ -626,12 +621,13 @@ extension String {
     ///
     fileprivate func toTargetId(rootUri: String, workspaceName: String, executionRoot: String) throws -> URI {
         let (repoName, packageName, targetName) = try splitTargetLabel(workspaceName: workspaceName)
+        let packagePath = packageName.isEmpty ? "" : "/" + packageName
         let path: String
         if repoName == workspaceName {
-            path = "file://" + rootUri + "/" + packageName + "/" + targetName
+            path = "file://" + rootUri + packagePath + "/" + targetName
         } else {
             // External repo: use execution root + external path
-            path = "file://" + executionRoot + "/external/" + repoName + "/" + packageName + "/" + targetName
+            path = "file://" + executionRoot + "/external/" + repoName + packagePath + "/" + targetName
         }
         guard let uri = try? URI(string: path) else {
             throw BazelTargetQuerierParserError.convertUriFailed(path)

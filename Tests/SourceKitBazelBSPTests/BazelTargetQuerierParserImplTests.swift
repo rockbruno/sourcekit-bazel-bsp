@@ -51,7 +51,7 @@ struct BazelTargetQuerierParserImplTests {
         )
 
         // Pre-create URIs
-        let baseDir = try URI(string: "file:///path/to/project/HelloWorld")
+        let baseDir = try URI(string: "file:///path/to/project/HelloWorld/")
         let expandedTemplateUri = try URI(string: "file:///path/to/project/HelloWorld/ExpandedTemplate")
         let generatedDummyUri = try URI(string: "file:///path/to/project/HelloWorld/GeneratedDummy")
         let helloWorldLibUri = try URI(string: "file:///path/to/project/HelloWorld/HelloWorldLib")
@@ -99,7 +99,7 @@ struct BazelTargetQuerierParserImplTests {
             makeExpectedTarget(
                 uri: helloWorldLibUri,
                 displayName: "//HelloWorld:HelloWorldLib",
-                dependencies: [expandedTemplateUri, generatedDummyUri, todoModelsUri, todoObjCSupportUri]
+                dependencies: [todoModelsUri, todoObjCSupportUri, expandedTemplateUri, generatedDummyUri]
             ),
             makeExpectedTarget(
                 uri: helloWorldTestsLibUri,

@@ -159,11 +159,6 @@ final class BazelTargetStoreImpl: BazelTargetStore, @unchecked Sendable {
         // the one matching your selected simulator in the IDE. We don't have any sort of special IDE integration
         // at the moment, so for now we just select the first parent.
         let parentToUse = parents[0]
-        if parents.count > 1 {
-            logger.warning(
-                "Target \(uri.description, privacy: .public) has multiple top-level parents; will pick the first one: \(parentToUse, privacy: .public)"
-            )
-        }
         let rule = try topLevelRuleType(forBazelLabel: parentToUse)
         let config = try topLevelConfigInfo(forBazelLabel: parentToUse)
         return BazelTargetPlatformInfo(
@@ -220,9 +215,9 @@ final class BazelTargetStoreImpl: BazelTargetStore, @unchecked Sendable {
 
         reportQueue.async { [weak self] in
             guard let self = self else { return }
-            let outputBase = self.initializedConfig.outputBase
+            let outputPath: String = self.initializedConfig.outputPath
             let fileName = "sourcekit-bazel-bsp-graph.json"
-            self.writeReport(toPath: outputBase + "/" + fileName)
+            self.writeReport(toPath: outputPath + "/" + fileName)
         }
 
         return result

@@ -36,7 +36,7 @@ enum BazelTargetQuerierParserError: Error, LocalizedError {
     case unexpectedTargetType(Int)
     case noTopLevelTargets([TopLevelRuleType])
     case missingPathExtension(String)
-    case unexpectedFileExtension(String)
+    case unexpectedFileExtension(String, String)
 
     var errorDescription: String? {
         switch self {
@@ -61,7 +61,7 @@ enum BazelTargetQuerierParserError: Error, LocalizedError {
                 \(rules.map { $0.rawValue }.joined(separator: ", "))
                 """
         case .missingPathExtension(let path): return "Missing path extension for \(path)"
-        case .unexpectedFileExtension(let pathExtension): return "Unexpected file extension: \(pathExtension)"
+        case .unexpectedFileExtension(let pathExtension, let file): return "Unexpected file extension: \(pathExtension) for \(file)"
         }
     }
 }
@@ -74,6 +74,7 @@ protocol BazelTargetQuerierParser: AnyObject {
         supportedDependencyRuleTypes: [DependencyRuleType],
         supportedTopLevelRuleTypes: [TopLevelRuleType],
         rootUri: String,
+        workspaceName: String,
         executionRoot: String,
         toolchainPath: String,
     ) throws -> ProcessedCqueryResult
@@ -93,17 +94,12 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
         supportedDependencyRuleTypes: [DependencyRuleType],
         supportedTopLevelRuleTypes: [TopLevelRuleType],
         rootUri: String,
+        workspaceName: String,
         executionRoot: String,
         toolchainPath: String,
     ) throws -> ProcessedCqueryResult {
         let cquery = try BazelProtobufBindings.parseCqueryResult(data: data)
-        let targets = cquery.results
-            .map { $0.target }
-            .filter {
-                // Ignore external labels.
-                // FIXME: I guess _technically_ we could index those, but skipping for now.
-                return !$0.rule.name.hasPrefix("@")
-            }
+        let targets = cquery.results.map { $0.target }
 
         let supportedDependencyRuleTypesSet = Set(supportedDependencyRuleTypes)
         let testBundleRulesSet = Set(testBundleRules)
@@ -184,7 +180,7 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
             let label = target.rule.name
             depLabelToUriMap[label] = (
                 BuildTargetIdentifier(
-                    uri: try label.toTargetId(rootUri: rootUri)
+                    uri: try label.toTargetId(rootUri: rootUri, workspaceName: workspaceName, executionRoot: executionRoot)
                 ), label
             )
         }
@@ -219,7 +215,7 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
             }
             depLabelToUriMap[label] = (
                 BuildTargetIdentifier(
-                    uri: try realLabel.toTargetId(rootUri: rootUri)
+                    uri: try realLabel.toTargetId(rootUri: rootUri, workspaceName: workspaceName, executionRoot: executionRoot)
                 ), realLabel
             )
         }
@@ -233,9 +229,9 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
             }
 
             let rule = target.rule
-            let idUri: URI = try rule.name.toTargetId(rootUri: rootUri)
+            let idUri: URI = try rule.name.toTargetId(rootUri: rootUri, workspaceName: workspaceName, executionRoot: executionRoot)
             let id = BuildTargetIdentifier(uri: idUri)
-            let baseDirectory: URI = try rule.name.toBaseDirectory(rootUri: rootUri)
+            let baseDirectory: URI? = idUri.toBaseDirectory()
 
             let sourcesItem = try processSrcsAttr(
                 rule: rule,
@@ -409,7 +405,7 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
             throw BazelTargetQuerierParserError.missingPathExtension(src.stringValue)
         }
         guard let extensionKind = SupportedExtension(rawValue: pathExtension) else {
-            throw BazelTargetQuerierParserError.unexpectedFileExtension(pathExtension)
+            throw BazelTargetQuerierParserError.unexpectedFileExtension(pathExtension, src.stringValue)
         }
 
         let kind: SourceKitSourceItemKind = extensionKind.kind
@@ -625,51 +621,61 @@ extension Array {
 extension String {
     /// Converts a Bazel label into a URI and returns a unique target id.
     ///
-    /// file://<path-to-root>/<package-name>___<target-name>
+    /// For local labels: file://<path-to-root>/<package-name>___<target-name>
+    /// For external labels: file://<execution-root>/external/<repo-name>/<package-name>___<target-name>
     ///
-    fileprivate func toTargetId(rootUri: String) throws -> URI {
-        let (packageName, targetName) = try splitTargetLabel()
-        let path = "file://" + rootUri + "/" + packageName + "___" + targetName
+    fileprivate func toTargetId(rootUri: String, workspaceName: String, executionRoot: String) throws -> URI {
+        let (repoName, packageName, targetName) = try splitTargetLabel(workspaceName: workspaceName)
+        let path: String
+        if repoName == workspaceName {
+            path = "file://" + rootUri + "/" + packageName + "/" + targetName
+        } else {
+            // External repo: use execution root + external path
+            path = "file://" + executionRoot + "/external/" + repoName + "/" + packageName + "/" + targetName
+        }
         guard let uri = try? URI(string: path) else {
             throw BazelTargetQuerierParserError.convertUriFailed(path)
         }
         return uri
     }
 
-    /// Fetches the base directory of a target based on its id.
-    ///
-    /// file://<path-to-root>/<package-name>
-    ///
-    fileprivate func toBaseDirectory(rootUri: String) throws -> URI {
-        let (packageName, _) = try splitTargetLabel()
-
-        let fileScheme = "file://" + rootUri + "/" + packageName
-
-        guard let uri = try? URI(string: fileScheme) else {
-            throw BazelTargetQuerierParserError.convertUriFailed(fileScheme)
-        }
-
-        return uri
-    }
-
-    /// Splits a full Bazel label into a tuple of its package and target names.
-    fileprivate func splitTargetLabel() throws -> (packageName: String, targetName: String) {
+    /// Splits a full Bazel label into a tuple of its repo, package, and target names.
+    /// For local labels (//package:target), the repo name is the provided workspace name.
+    /// For external labels (@repo//package:target), the repo name is extracted.
+    fileprivate func splitTargetLabel(workspaceName: String) throws -> (repoName: String, packageName: String, targetName: String) {
         let components = split(separator: ":")
 
         guard components.count == 2 else {
             throw BazelTargetQuerierParserError.incorrectName(self)
         }
 
-        let packageName =
-            if components[0].starts(with: "//") {
-                String(components[0].dropFirst(2))
-            } else {
-                String(components[0])
-            }
-
+        let repoAndPackage = components[0]
         let targetName = String(components[1])
 
-        return (packageName: packageName, targetName: targetName)
+        let repoName: String
+        let packageName: String
+
+        if repoAndPackage.hasPrefix("@//") {
+            // Alias for the main repo.
+            repoName = workspaceName
+            packageName = String(repoAndPackage.dropFirst(3))
+        } else if repoAndPackage.hasPrefix("//") {
+            // Also the main repo.
+            repoName = workspaceName
+            packageName = String(repoAndPackage.dropFirst(2))
+        } else if repoAndPackage.hasPrefix("@") && repoAndPackage.contains("//") {
+            // External label
+            let withoutAt = repoAndPackage.dropFirst()
+            guard let slashIndex = withoutAt.firstIndex(of: "/") else {
+                throw BazelTargetQuerierParserError.incorrectName(self)
+            }
+            repoName = String(withoutAt[..<slashIndex])
+            packageName = String(withoutAt[slashIndex...].dropFirst(2))
+        } else {
+            throw BazelTargetQuerierParserError.incorrectName(self)
+        }
+
+        return (repoName: repoName, packageName: packageName, targetName: targetName)
     }
 
     // Converts a Bazel label to its "full" equivalent, if needed.
@@ -684,5 +690,15 @@ extension String {
         } else {
             return self
         }
+    }
+}
+
+extension URI {
+    /// Fetches the base directory of a target by dropping the last path component (target name) from the URI.
+    fileprivate func toBaseDirectory() -> URI? {
+        guard let url = fileURL else {
+            return nil
+        }
+        return URI(url.deletingLastPathComponent())
     }
 }

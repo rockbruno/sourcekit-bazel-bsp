@@ -252,7 +252,7 @@ extension BazelTargetCompilerArgsExtractor {
         let devDir = config.devDir
         let rootUri = config.rootUri
         let outputPath = config.outputPath
-        let outputBase = config.outputBase
+        let executionRoot = config.executionRoot
 
         var compilerArguments: [String] = []
 
@@ -350,7 +350,7 @@ extension BazelTargetCompilerArgsExtractor {
             // Transform external/ paths
             // FIXME: How to be sure this is actually the placeholder and not an actual "external/"" folder?
             if arg.contains("external/") {
-                let transformedArg = arg.replacingOccurrences(of: "external/", with: outputBase + "/external/")
+                let transformedArg = arg.replacingOccurrences(of: "external/", with: executionRoot + "/external/")
                 compilerArguments.append(transformedArg)
                 index += 1
                 continue

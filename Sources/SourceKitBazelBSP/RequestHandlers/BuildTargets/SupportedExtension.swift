@@ -30,6 +30,7 @@ enum SupportedExtension: String, CaseIterable {
     case cc
     case cpp
     case cxx
+    case inc
     case h
     case hpp
     case m
@@ -38,7 +39,7 @@ enum SupportedExtension: String, CaseIterable {
 
     var kind: SourceKitSourceItemKind {
         switch self {
-        case .h, .hpp: return .header
+        case .inc, .h, .hpp: return .header
         case .c, .cc, .cpp, .cxx: return .source
         case .m, .mm: return .source
         case .swift: return .source
@@ -49,7 +50,7 @@ enum SupportedExtension: String, CaseIterable {
     var language: Language {
         switch self {
         case .c: return .c
-        case .cpp, .cc, .cxx, .hpp: return .cpp
+        case .cpp, .cc, .cxx, .inc, .hpp: return .cpp
         case .m: return .objective_c
         case .mm, .h: return .objective_cpp
         case .swift: return .swift

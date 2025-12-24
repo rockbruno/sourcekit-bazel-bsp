@@ -91,7 +91,7 @@ final class BazelTargetQuerier {
         // If we're searching for test rules, we need to also include their test bundle rules.
         // Otherwise we won't be able to map test dependencies back to their top level parents.
         let testBundleRules = supportedTopLevelRuleTypes.compactMap { $0.testBundleRule }
-        dependencyKindsFilter.append(contentsOf: testBundleRules)
+        dependencyKindsFilter.append(contentsOf: testBundleRules.map { $0.rawValue })
 
         let topLevelKindsFilter = supportedTopLevelRuleTypes.map { $0.rawValue }
         let topLevelDepsFilter = Self.queryDepsString(forTargets: userProvidedTargets)

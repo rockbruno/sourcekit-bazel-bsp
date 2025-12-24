@@ -198,12 +198,11 @@ final class BazelTargetCompilerArgsExtractor {
     ) throws -> Analysis_Action {
         let bazelTarget: String = {
             let base = platformInfo.label
-            if base.hasPrefix("@") {
-                // External labels show up as `@@` in the aquery.
-                return "@\(base)"
-            } else {
+            guard base.hasPrefix("@") else {
                 return base
             }
+            // External labels show up as `@@` in the aquery.
+            return "@\(base)"
         }()
         guard let target = aquery.targets[bazelTarget] else {
             throw BazelTargetCompilerArgsExtractorError.targetNotFound(bazelTarget)

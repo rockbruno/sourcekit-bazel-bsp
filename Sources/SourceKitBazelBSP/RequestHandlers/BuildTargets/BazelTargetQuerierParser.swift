@@ -132,7 +132,9 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
                     allAliases.append(target)
                 } else if supportedTestBundleRulesSet.contains(kind) {
                     if !target.rule.name.hasSuffix(TopLevelRuleType.testBundleRuleSuffix) {
-                        logger.error("Unexpected test bundle rule without the expected suffix: \(target.rule.name, privacy: .public)")
+                        logger.error(
+                            "Unexpected test bundle rule without the expected suffix: \(target.rule.name, privacy: .public)"
+                        )
                     }
                     allTestBundles.append(target)
                     let realTopLevelName = String(

@@ -69,7 +69,7 @@ enum BazelTargetQuerierParserError: Error, LocalizedError {
 protocol BazelTargetQuerierParser: AnyObject {
     func processCquery(
         from data: Data,
-        testBundleRules: [TopLevelTestBundleRuleType],
+        testBundleRules: [String],
         supportedDependencyRuleTypes: [DependencyRuleType],
         supportedTopLevelRuleTypes: [TopLevelRuleType],
         rootUri: String,
@@ -89,7 +89,7 @@ protocol BazelTargetQuerierParser: AnyObject {
 final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
     func processCquery(
         from data: Data,
-        testBundleRules: [TopLevelTestBundleRuleType],
+        testBundleRules: [String],
         supportedDependencyRuleTypes: [DependencyRuleType],
         supportedTopLevelRuleTypes: [TopLevelRuleType],
         rootUri: String,
@@ -98,6 +98,9 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
         toolchainPath: String,
     ) throws -> ProcessedCqueryResult {
         let cquery = try BazelProtobufBindings.parseCqueryResult(data: data)
+
+        // FIXME: This class should be broken down into multiple smaller testable ones.
+        // It was done this way to first make sure the BSP worked, but now it's time to refactor.
 
         // Separate / categorize all the data we received from the cquery.
         let supportedTopLevelRuleTypesSet = Set(supportedTopLevelRuleTypes)
@@ -127,12 +130,13 @@ final class BazelTargetQuerierParserImpl: BazelTargetQuerierParser {
                     }
                 } else if kind == "alias" {
                     allAliases.append(target)
-                } else if let testBundleRuleType = TopLevelTestBundleRuleType(rawValue: kind),
-                    supportedTestBundleRulesSet.contains(testBundleRuleType)
-                {
+                } else if supportedTestBundleRulesSet.contains(kind) {
+                    if !target.rule.name.hasSuffix(TopLevelRuleType.testBundleRuleSuffix) {
+                        logger.error("Unexpected test bundle rule without the expected suffix: \(target.rule.name, privacy: .public)")
+                    }
                     allTestBundles.append(target)
                     let realTopLevelName = String(
-                        target.rule.name.dropLast(TopLevelTestBundleRuleType.testBundleRuleSuffix.count)
+                        target.rule.name.dropLast(TopLevelRuleType.testBundleRuleSuffix.count)
                     )
                     configurationToTopLevelLabelsMap[configuration, default: []].append(realTopLevelName)
                     bazelLabelToParentConfigMap[realTopLevelName] = configuration
@@ -540,7 +544,7 @@ extension BazelTargetQuerierParserImpl {
         // then we need to search for this bundle target instead of the original rule.
         let effectiveParentLabel: String
         if type.testBundleRule != nil {
-            effectiveParentLabel = target + TopLevelTestBundleRuleType.testBundleRuleSuffix
+            effectiveParentLabel = target + TopLevelRuleType.testBundleRuleSuffix
         } else {
             effectiveParentLabel = target
         }

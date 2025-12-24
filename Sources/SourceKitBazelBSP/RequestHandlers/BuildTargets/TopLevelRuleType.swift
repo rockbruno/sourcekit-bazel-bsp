@@ -50,6 +50,12 @@ public enum TopLevelRuleType: String, CaseIterable, ExpressibleByArgument, Senda
     case visionosUiTest = "visionos_ui_test"
     case visionosBuildTest = "visionos_build_test"
 
+    /// The suffix that is added to the test rule name to get the bundle target name.
+    /// e.g. HelloWorldTests -> HelloWorldTests.__internal__.__test_bundle
+    static var testBundleRuleSuffix: String {
+        return ".__internal__.__test_bundle"
+    }
+
     /// The mnemonic that assembles everything together in this rule.
     /// This is used to find the correct variant of each library we need to parse.
     var mmnemonic: String {
@@ -87,18 +93,18 @@ public enum TopLevelRuleType: String, CaseIterable, ExpressibleByArgument, Senda
     /// Some test rule types inject a bundle target between the rule and its dependencies.
     /// We need to keep track of them to be able to parse those rules properly.
     /// If the rule does not generate a bundle target, returns nil.
-    var testBundleRule: TopLevelTestBundleRuleType? {
+    var testBundleRule: String? {
         switch self {
-        case .iosUnitTest: return .iosUnitTest
-        case .iosUiTest: return .iosUiTest
-        case .watchosUnitTest: return .watchosUnitTest
-        case .watchosUiTest: return .watchosUiTest
-        case .macosUnitTest: return .macosUnitTest
-        case .macosUiTest: return .macosUiTest
-        case .tvosUnitTest: return .tvosUnitTest
-        case .tvosUiTest: return .tvosUiTest
-        case .visionosUnitTest: return .visionosUnitTest
-        case .visionosUiTest: return .visionosUiTest
+        case .iosUnitTest: return "_ios_internal_unit_test_bundle"
+        case .iosUiTest: return "_ios_internal_ui_test_bundle"
+        case .watchosUnitTest: return "_watchos_internal_unit_test_bundle"
+        case .watchosUiTest: return "_watchos_internal_ui_test_bundle"
+        case .macosUnitTest: return "_macos_internal_unit_test_bundle"
+        case .macosUiTest: return "_macos_internal_ui_test_bundle"
+        case .tvosUnitTest: return "_tvos_internal_unit_test_bundle"
+        case .tvosUiTest: return "_tvos_internal_ui_test_bundle"
+        case .visionosUnitTest: return "_visionos_internal_unit_test_bundle"
+        case .visionosUiTest: return "_visionos_internal_ui_test_bundle"
         default: return nil
         }
     }
@@ -146,24 +152,5 @@ public enum TopLevelRuleType: String, CaseIterable, ExpressibleByArgument, Senda
         case .visionosUiTest: return "xrsimulator"
         case .visionosBuildTest: return "xrsimulator"
         }
-    }
-}
-
-public enum TopLevelTestBundleRuleType: String, CaseIterable, Sendable {
-    case iosUnitTest = "_ios_internal_unit_test_bundle"
-    case iosUiTest = "_ios_internal_ui_test_bundle"
-    case watchosUnitTest = "_watchos_internal_unit_test_bundle"
-    case watchosUiTest = "_watchos_internal_ui_test_bundle"
-    case macosUnitTest = "_macos_internal_unit_test_bundle"
-    case macosUiTest = "_macos_internal_ui_test_bundle"
-    case tvosUnitTest = "_tvos_internal_unit_test_bundle"
-    case tvosUiTest = "_tvos_internal_ui_test_bundle"
-    case visionosUnitTest = "_visionos_internal_unit_test_bundle"
-    case visionosUiTest = "_visionos_internal_ui_test_bundle"
-
-    /// The suffix that is added to the test rule name to get the bundle target name.
-    /// e.g. HelloWorldTests -> HelloWorldTests.__internal__.__test_bundle
-    static var testBundleRuleSuffix: String {
-        return ".__internal__.__test_bundle"
     }
 }

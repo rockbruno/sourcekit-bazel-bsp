@@ -43,8 +43,8 @@ enum SupportedExtension: String, CaseIterable {
 
     var kind: SourceKitSourceItemKind {
         switch self {
-        case .hCaps, .h, .hh, .hpp, .inc: return .header
-        case .cCaps, .c, .cc, .cpp, .cxx, .ipp: return .source
+        case .hCaps, .h, .hh, .hpp, .inc, .ipp: return .header
+        case .cCaps, .c, .cc, .cpp, .cxx: return .source
         case .m, .mm: return .source
         case .swift: return .source
         }

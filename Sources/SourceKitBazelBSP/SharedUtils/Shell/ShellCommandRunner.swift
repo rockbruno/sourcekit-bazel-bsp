@@ -43,7 +43,7 @@ struct ShellCommandRunner: CommandRunner {
             process.currentDirectoryURL = URL(fileURLWithPath: cwd)
         }
 
-        process.arguments = ["-c", cmd]
+        process.arguments = ["-l", "-c", cmd]
         process.standardInput = nil
 
         // Keep child processes in the same process group

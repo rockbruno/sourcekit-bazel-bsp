@@ -115,6 +115,7 @@ swift_library(
         ":TodoModelsAlias",
         ":TodoObjCSupport",
         ":ExpandedTemplate",
+        "@yams//:Yams",  # External dep to test bzlmod + version suffix in BSP URIs
     ] + select({
         "//conditions:default": [],
         ":dbg_mode": [":GeneratedDummy"],
